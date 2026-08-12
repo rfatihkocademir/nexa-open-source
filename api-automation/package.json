@@ -1,6 +1,7 @@
 {
   "name": "nexa-api-automation",
   "version": "1.0.0",
+  "license": "GPL-2.0-only",
   "private": true,
   "description": "Nexa backend API contract, endpoint coverage and end-to-end automation suite",
   "scripts": {

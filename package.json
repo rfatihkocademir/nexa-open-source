@@ -2,6 +2,7 @@
     "name": "nexa",
     "private": true,
     "version": "0.1.0",
+    "license": "GPL-2.0-only",
     "description": "Self-hosted software delivery lifecycle and quality management platform",
     "scripts": {
         "setup": "./scripts/install.sh",

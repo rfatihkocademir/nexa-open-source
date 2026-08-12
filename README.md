@@ -115,3 +115,7 @@ Please read [SECURITY.md](SECURITY.md) before reporting a vulnerability. Authori
 ## Contributing
 
 Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), keep changes focused, and include tests for behavior changes.
+
+## License
+
+Nexa is free software licensed under the [GNU General Public License version 2 only](LICENSE) (`GPL-2.0-only`). Commercial use, modification, and redistribution are permitted under the terms of that license. Distributed derivative works must remain licensed under GPL-2.0-only and include the corresponding source code.
