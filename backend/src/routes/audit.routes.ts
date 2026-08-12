@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { protect } from '../middlewares/auth.middleware';
+import { restrictTo } from '../middlewares/rbac.middleware';
+import { auditController } from '../controllers/audit.controller';
+const router = Router();
+router.use(protect, restrictTo('ADMIN'));
+router.get('/', auditController.list);
+router.get('/export', auditController.exportCsv);
+router.get('/verify', auditController.verify);
+export default router;

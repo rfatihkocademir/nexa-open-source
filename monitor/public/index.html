@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexa Runtime Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="w-full px-2 py-4 sm:px-3 lg:px-4 xl:px-6 2xl:px-8">
+      <header class="mb-4 flex flex-col gap-3 border-b border-slate-800 pb-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-cyan-400">Nexa</p>
+          <h1 class="text-2xl font-semibold text-slate-50 md:text-3xl">Runtime Monitor</h1>
+          <p class="mt-1 text-sm text-slate-400">Grafana + Graylog hissiyatında, tek ekran canlı metrik paneli.</p>
+        </div>
+        <div class="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
+          <div>Last Update: <span id="lastUpdate" class="font-medium text-slate-100">-</span></div>
+          <div>Monitor PID: <span id="monitorPid" class="font-medium text-slate-100">-</span></div>
+        </div>
+      </header>
+
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-400">CPU Usage</p>
+          <p id="cpuValue" class="mt-2 text-3xl font-semibold text-cyan-300">-</p>
+          <p class="text-xs text-slate-500">Host CPU utilization</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Host Memory</p>
+          <p id="memoryValue" class="mt-2 text-3xl font-semibold text-emerald-300">-</p>
+          <p class="text-xs text-slate-500">Host RAM utilization</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-400">App RAM</p>
+          <p id="appMemoryValue" class="mt-2 text-3xl font-semibold text-violet-300">-</p>
+          <p id="appMemoryDetails" class="text-xs text-slate-500">Backend + Frontend + Monitor RSS</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Monitor Uptime</p>
+          <p id="uptimeValue" class="mt-2 text-3xl font-semibold text-amber-300">-</p>
+          <p class="text-xs text-slate-500">Process availability</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Manual Metrics Reads</p>
+          <p id="requestCountValue" class="mt-2 text-3xl font-semibold text-fuchsia-300">-</p>
+          <p class="text-xs text-slate-500">Only /api/metrics?manual=1 calls</p>
+          <p class="mt-1 text-xs text-slate-500">Probe Count: <span id="probeCountValue" class="font-medium text-slate-300">-</span></p>
+          <p class="mt-1 text-xs text-slate-500">Live Clients: <span id="streamClientCountValue" class="font-medium text-slate-300">-</span></p>
+        </article>
+      </section>
+
+      <section class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-8">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-medium text-slate-100">Service Status</h2>
+            <span id="systemInfo" class="text-xs text-slate-400">-</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead class="text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="pb-2 pr-3">Service</th>
+                  <th class="pb-2 pr-3">Status</th>
+                  <th class="pb-2 pr-3">Latency</th>
+                  <th class="pb-2 pr-3">Process RAM</th>
+                  <th class="pb-2 pr-3">Uptime</th>
+                  <th class="pb-2">Last Error</th>
+                </tr>
+              </thead>
+              <tbody id="serviceRows" class="align-top text-slate-200"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-4">
+          <div class="mb-3 flex flex-col gap-2">
+            <h2 class="text-sm font-medium text-slate-100">Live Events</h2>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <select id="liveEventLevelFilter" class="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200">
+                <option value="all">All Levels</option>
+                <option value="error">Error</option>
+                <option value="info">Info</option>
+              </select>
+              <input id="liveEventSearchFilter" type="text" placeholder="Event içinde ara" class="w-full rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 placeholder-slate-500" />
+            </div>
+          </div>
+          <ul id="logList" class="h-[280px] space-y-2 overflow-y-auto pr-1 text-xs"></ul>
+        </article>
+      </section>
+
+      <section class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-4">
+          <h3 class="mb-2 text-sm font-medium text-slate-100">CPU Trend</h3>
+          <svg id="cpuChart" viewBox="0 0 100 28" class="h-28 w-full rounded bg-slate-950/70"></svg>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-4">
+          <h3 class="mb-2 text-sm font-medium text-slate-100">App RAM Trend</h3>
+          <svg id="memoryChart" viewBox="0 0 100 28" class="h-28 w-full rounded bg-slate-950/70"></svg>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-4">
+          <h3 class="mb-2 text-sm font-medium text-slate-100">Service Latency Trend</h3>
+          <div class="mb-2 flex items-center gap-4 text-xs text-slate-400">
+            <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-cyan-400"></span>Backend</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-400"></span>Frontend</span>
+          </div>
+          <svg id="latencyChart" viewBox="0 0 100 28" class="h-24 w-full rounded bg-slate-950/70"></svg>
+        </article>
+      </section>
+
+      <section class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-3">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Backend Request Total</p>
+          <p id="backendRequestTotal" class="mt-2 text-2xl font-semibold text-cyan-300">-</p>
+          <p class="text-xs text-slate-500">All captured API requests</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-3">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Requests / Min</p>
+          <p id="backendRequestRpm" class="mt-2 text-2xl font-semibold text-emerald-300">-</p>
+          <p class="text-xs text-slate-500">Real-time traffic rate</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-3">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Backend 4xx + 5xx</p>
+          <p id="backendErrorTotal" class="mt-2 text-2xl font-semibold text-rose-300">-</p>
+          <p class="text-xs text-slate-500">Client + server errors</p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-3">
+          <p class="text-xs uppercase tracking-wide text-slate-400">Telemetry Stream</p>
+          <p id="backendStreamStatus" class="mt-2 text-2xl font-semibold text-amber-300">DISCONNECTED</p>
+          <p class="text-xs text-slate-500">Backend telemetry availability</p>
+        </article>
+      </section>
+
+      <section class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-9">
+          <div class="mb-2 flex items-center justify-between">
+            <h2 class="text-sm font-medium text-slate-100">Graylog Style - Backend Request Stream</h2>
+            <span id="backendRequestHint" class="text-xs text-slate-400">Live</span>
+          </div>
+          <div class="mb-3 grid grid-cols-1 gap-2 md:grid-cols-4">
+            <select id="backendRequestMethodFilter" class="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 md:col-span-1">
+              <option value="all">All Methods</option>
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+            <select id="backendRequestStatusFilter" class="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 md:col-span-1">
+              <option value="all">All Status</option>
+              <option value="2xx">2xx</option>
+              <option value="4xx">4xx</option>
+              <option value="5xx">5xx</option>
+            </select>
+            <input id="backendRequestSearchFilter" type="text" placeholder="Path / user / ip / reqId ara" class="w-full rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 placeholder-slate-500 md:col-span-2" />
+          </div>
+          <div class="max-h-[360px] overflow-auto">
+            <table class="min-w-full text-left text-xs">
+              <thead class="sticky top-0 bg-slate-900 text-[11px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="pb-2 pr-3">Time</th>
+                  <th class="pb-2 pr-3">Method</th>
+                  <th class="pb-2 pr-3">Path</th>
+                  <th class="pb-2 pr-3">Status</th>
+                  <th class="pb-2 pr-3">Duration</th>
+                  <th class="pb-2 pr-3">User</th>
+                  <th class="pb-2 pr-3">IP</th>
+                  <th class="pb-2">ReqId</th>
+                </tr>
+              </thead>
+              <tbody id="backendRequestRows" class="text-slate-200"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 xl:col-span-3">
+          <h2 class="mb-3 text-sm font-medium text-slate-100">BullMQ Queue Stats</h2>
+          <div class="max-h-[170px] overflow-auto">
+            <table class="min-w-full text-left text-xs">
+              <thead class="sticky top-0 bg-slate-900 text-[11px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="pb-2 pr-2">Queue</th>
+                  <th class="pb-2 pr-2">Q</th>
+                  <th class="pb-2 pr-2">A</th>
+                  <th class="pb-2 pr-2">C</th>
+                  <th class="pb-2">F</th>
+                </tr>
+              </thead>
+              <tbody id="queueStatRows" class="text-slate-200"></tbody>
+            </table>
+          </div>
+          <h3 class="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-slate-400">Queue Events</h3>
+          <div class="mb-2 flex flex-col gap-2 sm:flex-row">
+            <select id="queueEventTypeFilter" class="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 sm:w-40">
+              <option value="all">All Events</option>
+              <option value="queued">Queued</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="enqueue_failed">Enqueue Failed</option>
+            </select>
+            <input id="queueEventSearchFilter" type="text" placeholder="Queue event içinde ara" class="w-full rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 placeholder-slate-500" />
+          </div>
+          <ul id="queueEventList" class="h-[170px] space-y-2 overflow-auto pr-1 text-xs"></ul>
+        </article>
+      </section>
+
+      <section class="mt-4">
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <div class="mb-3 flex flex-col gap-2 sm:flex-row">
+            <h2 class="text-sm font-medium text-slate-100 sm:flex-1">Backend App Logs (Terminal Stream)</h2>
+            <select id="backendAppLogLevelFilter" class="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 sm:w-40">
+              <option value="all">All Levels</option>
+              <option value="error">Error</option>
+              <option value="warn">Warn</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+            </select>
+            <input id="backendAppLogSearchFilter" type="text" placeholder="Scope / mesaj ara" class="w-full rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-xs text-slate-200 placeholder-slate-500 sm:max-w-md" />
+          </div>
+          <ul id="backendAppLogList" class="h-[220px] space-y-2 overflow-auto pr-1 text-xs"></ul>
+        </article>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brand Mark: Nexa Icon -->
+  
+  <!-- Concentric Rings (Wave Effect) -->
+  <g transform="translate(140, 140)">
+    <circle cx="0" cy="0" r="35" stroke="#2C398B" stroke-width="12" />
+    <circle cx="0" cy="0" r="65" stroke="#2C398B" stroke-width="12" />
+    <circle cx="0" cy="0" r="95" stroke="#2C398B" stroke-width="12" />
+  </g>
+
+  <!-- Cursor / Arrow Pointer -->
+  <g>
+    <!-- Left Half (Lighter) -->
+    <path d="M140 140 L210 470 L300 320 Z" fill="#6B8AEC" />
+    <!-- Right Half (Darker) -->
+    <path d="M140 140 L300 320 L470 360 Z" fill="#4463D1" />
+  </g>
+</svg>

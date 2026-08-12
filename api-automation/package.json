@@ -1,0 +1,18 @@
+{
+  "name": "nexa-api-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nexa backend API contract, endpoint coverage and end-to-end automation suite",
+  "scripts": {
+    "routes": "node scripts/generate-route-catalog.cjs",
+    "test": "npm run routes && playwright test",
+    "test:smoke": "npm run routes && playwright test tests/endpoint-smoke.spec.cjs tests/health.spec.cjs tests/auth.spec.cjs",
+    "test:e2e": "npm run routes && playwright test tests/sdlc-e2e.spec.cjs",
+    "test:security": "npm run routes && playwright test tests/security.spec.cjs",
+    "report": "playwright show-report playwright-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "dotenv": "^17.2.3"
+  }
+}

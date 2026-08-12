@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brand Logo: Nexa (Icon + Text) -->
+  
+  <!-- Background Rect matching the user's image and original branding -->
+  <rect width="512" height="512" rx="64" fill="#0D1623" />
+
+  <!-- Concentric Rings (Wave Effect) -->
+  <g transform="translate(140, 140)">
+    <circle cx="0" cy="0" r="40" stroke="#2C398B" stroke-width="14" />
+    <circle cx="0" cy="0" r="75" stroke="#2C398B" stroke-width="14" />
+    <circle cx="0" cy="0" r="110" stroke="#2C398B" stroke-width="14" />
+  </g>
+
+  <!-- Cursor / Arrow Pointer -->
+  <g>
+    <!-- Left Half (Lighter) -->
+    <path d="M140 140 L210 470 L300 320 Z" fill="#6B8AEC" />
+    <!-- Right Half (Darker) -->
+    <path d="M140 140 L300 320 L470 360 Z" fill="#4463D1" />
+  </g>
+
+  <!-- Footer Text: NEXA -->
+  <g transform="translate(250, 420)">
+    <!-- N -->
+    <path d="M0 60 V0 L35 60 V0" stroke="white" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    <!-- E -->
+    <path d="M55 0 H85 M55 30 H80 M55 60 H85 M55 0 V60" stroke="white" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    <!-- X (Stylized / Dark Blue) -->
+    <path d="M105 5 L145 55 M145 5 L105 55" stroke="#2C398B" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    <!-- A -->
+    <path d="M165 60 L185 0 L205 60 M172 40 H198" stroke="white" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+{
+  "name": "ui-automation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node ./scripts/run-playwright.cjs test",
+    "test:headed": "node ./scripts/run-playwright.cjs test --headed",
+    "test:debug": "node ./scripts/run-playwright.cjs test --debug",
+    "test:ui": "node ./scripts/run-playwright.cjs test --ui",
+    "bdd:catalog": "node ./scripts/generate-bdd-catalog.cjs",
+    "bdd:count": "node ./scripts/count-bdd-scenarios.cjs",
+    "report": "node ./scripts/run-playwright.cjs show-report",
+    "install:browsers": "node ./scripts/run-playwright.cjs install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^24.10.1",
+    "playwright": "^1.57.0",
+    "typescript": "^5.9.3"
+  }
+}

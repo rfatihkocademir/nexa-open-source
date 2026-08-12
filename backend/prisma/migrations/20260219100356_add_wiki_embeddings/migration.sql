@@ -1,0 +1,1 @@
+-- This is an empty migration (migration file was missing).

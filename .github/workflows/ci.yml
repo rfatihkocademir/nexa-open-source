@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Scan complete Git history for secrets
+      run: >-
+        docker run --rm
+        -v "$GITHUB_WORKSPACE:/repo:ro"
+        ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        git --redact --no-banner /repo
+
+  test-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: nexa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.x'
+        cache: npm
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Audit production dependencies
+      working-directory: ./backend
+      run: npm audit --omit=dev --audit-level=high
+      
+    - name: Run Migrations
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/nexa_test?schema=public
+      run: npx prisma migrate deploy
+      
+    - name: Run Tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/nexa_test?schema=public
+        JWT_SECRET: testsecret
+      run: npm test
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.x'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Audit production dependencies
+      working-directory: ./frontend
+      run: npm audit --omit=dev --audit-level=high
+
+    - name: Lint frontend
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Accessibility audit
+      working-directory: ./frontend
+      run: npm run audit:accessibility
+
+    - name: i18n key audit
+      working-directory: ./frontend
+      run: npm run check:i18n
+      
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Bundle budget
+      working-directory: ./frontend
+      run: npm run check:bundle
+
+  validate-containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Generate temporary deployment configuration
+      env:
+        NEXA_ENV_FILE: ${{ runner.temp }}/nexa.env
+        NEXA_SKIP_DOCKER_CHECK: "true"
+      run: ./scripts/install.sh --no-start > /dev/null
+
+    - name: Validate Compose configuration
+      run: docker compose --env-file "${{ runner.temp }}/nexa.env" config --quiet
+
+    - name: Build production images
+      run: docker compose --env-file "${{ runner.temp }}/nexa.env" build backend frontend

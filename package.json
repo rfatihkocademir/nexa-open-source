@@ -1,0 +1,42 @@
+{
+    "name": "nexa",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Self-hosted software delivery lifecycle and quality management platform",
+    "scripts": {
+        "setup": "./scripts/install.sh",
+        "docker:up": "docker compose up -d --build",
+        "docker:down": "docker compose down",
+        "docker:logs": "docker compose logs -f",
+        "docker:status": "docker compose ps",
+        "install:all": "npm ci && npm --prefix backend ci && npm --prefix backend run prisma:generate && npm --prefix frontend ci && npm --prefix api-automation ci && npm --prefix ui-automation ci",
+        "build": "npm --prefix backend run build && npm --prefix frontend run build",
+        "lint": "npm --prefix frontend run lint",
+        "dev": "node scripts/dev-all.mjs",
+        "dev:backend": "cd backend && npm run dev",
+        "dev:frontend": "cd frontend && npm run dev",
+        "dev:monitor": "node monitor/server.mjs",
+        "health:check": "node scripts/health-check.mjs",
+        "test:ui": "npm --prefix ui-automation run test",
+        "test:api": "npm --prefix api-automation test",
+        "test:api:smoke": "npm --prefix api-automation run test:smoke",
+        "test:api:e2e": "npm --prefix api-automation run test:e2e",
+        "test:ui:headed": "npm --prefix ui-automation run test:headed",
+        "test:ui:debug": "npm --prefix ui-automation run test:debug",
+        "test:ui:report": "npm --prefix ui-automation run report",
+        "test:ui:bdd:catalog": "npm --prefix ui-automation run bdd:catalog",
+        "test:ui:bdd:count": "npm --prefix ui-automation run bdd:count",
+        "pm2:start": "cd backend && npm run pm2:start",
+        "pm2:start:prod": "cd backend && npm run pm2:start:prod",
+        "pm2:stop": "cd backend && npm run pm2:stop",
+        "pm2:restart": "cd backend && npm run pm2:restart",
+        "pm2:reload": "cd backend && npm run pm2:reload",
+        "pm2:delete": "cd backend && npm run pm2:delete",
+        "pm2:logs": "cd backend && npm run pm2:logs",
+        "pm2:status": "cd backend && npm run pm2:status",
+        "pm2:monit": "cd backend && npm run pm2:monit"
+    },
+    "devDependencies": {
+        "socket.io-client": "^4.8.3"
+    }
+}

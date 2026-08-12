@@ -1,0 +1,215 @@
+name: ${COMPOSE_PROJECT_NAME:-nexa}
+
+x-ollama-service: &ollama-service
+  image: ollama/ollama:0.11.4
+  restart: unless-stopped
+  volumes:
+    - ollama_data:/root/.ollama
+  environment:
+    OLLAMA_HOST: 0.0.0.0:11434
+    OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+    OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+    OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    OLLAMA_FLASH_ATTENTION: "1"
+  healthcheck:
+    test: ["CMD", "ollama", "list"]
+    interval: 20s
+    timeout: 10s
+    retries: 20
+    start_period: 20s
+  networks:
+    default:
+      aliases:
+        - ollama
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg15-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-nexa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run ./scripts/install.sh to generate DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-nexa}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nexa}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Run ./scripts/install.sh to generate MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_BIND_ADDRESS:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  browserless:
+    image: ghcr.io/browserless/chromium:v2.37.0
+    restart: unless-stopped
+    environment:
+      TOKEN: ${BROWSERLESS_TOKEN:?Run ./scripts/install.sh to generate BROWSERLESS_TOKEN}
+      TIMEOUT: ${BROWSERLESS_CONNECTION_TIMEOUT:-600000}
+      MAX_CONCURRENT_SESSIONS: ${MAX_PLAYWRIGHT_CONCURRENCY:-2}
+    shm_size: 2gb
+
+  ollama:
+    <<: *ollama-service
+    profiles: ["cpu"]
+    ports:
+      - "${OLLAMA_BIND_ADDRESS:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
+
+  ollama-gpu:
+    <<: *ollama-service
+    profiles: ["gpu"]
+    gpus: all
+    ports:
+      - "${OLLAMA_BIND_ADDRESS:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-nexa}:${DB_PASSWORD:?Run ./scripts/install.sh}@postgres:5432/${DB_NAME:-nexa}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Run ./scripts/install.sh to generate JWT_SECRET}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?Run ./scripts/install.sh to generate DATA_ENCRYPTION_KEY}
+      AUDIT_SIGNING_KEY: ${AUDIT_SIGNING_KEY:?Run ./scripts/install.sh to generate AUDIT_SIGNING_KEY}
+      AUDIT_FAIL_CLOSED: ${AUDIT_FAIL_CLOSED:-true}
+      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8080}
+      BACKEND_PUBLIC_URL: ${BACKEND_PUBLIC_URL:-http://localhost:8080}
+      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      ALLOW_PUBLIC_REGISTRATION: ${ALLOW_PUBLIC_REGISTRATION:-false}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      DEFAULT_ORGANIZATION_SLUG: ${DEFAULT_ORGANIZATION_SLUG:-default}
+      BOOTSTRAP_ORGANIZATION_NAME: ${BOOTSTRAP_ORGANIZATION_NAME:-Nexa}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@nexa.local}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Run ./scripts/install.sh to generate BOOTSTRAP_ADMIN_PASSWORD}
+      BOOTSTRAP_ADMIN_FIRST_NAME: ${BOOTSTRAP_ADMIN_FIRST_NAME:-Nexa}
+      BOOTSTRAP_ADMIN_LAST_NAME: ${BOOTSTRAP_ADMIN_LAST_NAME:-Admin}
+      EMAIL_WEBHOOK_URL: ${EMAIL_WEBHOOK_URL:-}
+      EMAIL_WEBHOOK_API_KEY: ${EMAIL_WEBHOOK_API_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      WEBHOOK_ALLOWED_DOMAINS: ${WEBHOOK_ALLOWED_DOMAINS:-}
+      SIEM_ALLOWED_DOMAINS: ${SIEM_ALLOWED_DOMAINS:-}
+      API_OUTBOUND_ALLOWED_HOSTS: ${API_OUTBOUND_ALLOWED_HOSTS:-}
+      JIRA_ALLOWED_DOMAINS: ${JIRA_ALLOWED_DOMAINS:-}
+      ENABLE_RETENTION_PURGE: ${ENABLE_RETENTION_PURGE:-false}
+      SOFT_DELETE_RETENTION_DAYS: ${SOFT_DELETE_RETENTION_DAYS:-30}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-nexa}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Run ./scripts/install.sh}
+      MINIO_BUCKET: ${MINIO_BUCKET:-nexa}
+      MINIO_USE_SSL: "false"
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      AI_ALLOW_EXTERNAL_DATA: ${AI_ALLOW_EXTERNAL_DATA:-false}
+      AI_QUEUE_ATTEMPTS: ${AI_QUEUE_ATTEMPTS:-2}
+      AI_READINESS_REQUIRED: ${AI_READINESS_REQUIRED:-true}
+      AI_READINESS_GENERATION_PROBE: ${AI_READINESS_GENERATION_PROBE:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_MODEL_PULL_TIMEOUT_MS: ${OLLAMA_MODEL_PULL_TIMEOUT_MS:-1800000}
+      OLLAMA_STARTUP_TIMEOUT_MS: ${OLLAMA_STARTUP_TIMEOUT_MS:-120000}
+      AUTOMATION_BASE_URL: ${AUTOMATION_BASE_URL:-http://frontend}
+      AUTOMATION_ALLOWED_HOSTS: ${AUTOMATION_ALLOWED_HOSTS:-frontend}
+      PLAYWRIGHT_WS_ENDPOINT: ws://browserless:3000?token=${BROWSERLESS_TOKEN:?Run ./scripts/install.sh}
+      PLAYWRIGHT_EXECUTION_TIMEOUT_MS: ${PLAYWRIGHT_EXECUTION_TIMEOUT_MS:-600000}
+      MAX_PLAYWRIGHT_CONCURRENCY: ${MAX_PLAYWRIGHT_CONCURRENCY:-2}
+    expose:
+      - "3000"
+    volumes:
+      - backend_media:/app/public
+      - automation_data:/app/automation-runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      browserless:
+        condition: service_started
+    command:
+      - sh
+      - -ec
+      - |
+        ./node_modules/.bin/prisma migrate deploy
+        npm run bootstrap
+        npm run seed:prompts
+        npm run ensure:ollama-models
+        exec npm start
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 30s
+      retries: 30
+      start_period: 30m
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  ollama_data:
+  backend_media:
+  automation_data:
